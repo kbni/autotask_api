@@ -7,10 +7,17 @@ module AutotaskAPI
       self.raw_xml = xml
       self.attributes = {}
       fields.each do |field|
-        attributes[field] = xml.at_xpath("Autotask:#{field.to_s == 'id' ? 'id' : field.to_s.camelize.gsub(/Id$/, 'ID')}",
-          Autotask: Client::NAMESPACE).text.strip rescue ''
+        attributes[field] = self[field]
       end
-      attributes
+    end
+    
+    def [](attr_name)
+      field_node_name = attr_name.to_s.gsub(/_/,'').downcase
+      xpath_query = "*[translate(name(),"\
+        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"\
+        "'abcdefghijklmnopqrstuvwxyz')"\
+        "='#{field_node_name}']"
+      raw_xml.at_xpath(xpath_query).text.strip rescue ''
     end
 
     def method_missing(method, *args, &block)
