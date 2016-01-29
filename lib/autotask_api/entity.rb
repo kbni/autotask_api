@@ -11,20 +11,34 @@ module AutotaskAPI
       end
     end
     
-    def [](attr_name)
-      field_node_name = attr_name.to_s.gsub(/_/,'').downcase
+    def field_by_xpath(attr_name, rescue_val = '')
+      field_node_name = attr_name.to_s.downcase.gsub('_', '')
       xpath_query = "*[translate(name(),"\
         "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"\
         "'abcdefghijklmnopqrstuvwxyz')"\
         "='#{field_node_name}']"
-      raw_xml.at_xpath(xpath_query).text.strip rescue ''
+      raw_xml.at_xpath(xpath_query).text.strip rescue rescue_val
+    end
+    
+    def [](attr_name)
+      field_by_xpath(attr_name, '')
     end
 
     def method_missing(method, *args, &block)
-      if attributes.include?(method.to_sym)
-        attributes[method.to_sym]
-      else
+      attr_name = method.to_s.gsub('_', '').downcase
+      ret = field_by_xpath(attr_name, nil)
+      if ret == nil
         super
+      else
+        if attr_name.include? "datetime"
+          if ret.include? "T00:00:00"
+            ret = ActiveSupport::TimeZone[self.client.tz].parse(ret)
+          else
+            ret = ActiveSupport::TimeZone['America/New_York'].parse(ret)
+            ret = ret.in_time_zone(self.client.tz)
+          end
+        end
+        ret
       end
     end
 

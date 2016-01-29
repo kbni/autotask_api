@@ -1,7 +1,7 @@
 module AutotaskAPI
   class Client
     NAMESPACE = 'http://autotask.net/ATWS/v1_5/'
-    attr_accessor :savon_client, :wsdl, :basic_auth, :query, :log
+    attr_accessor :savon_client, :wsdl, :basic_auth, :query, :log, :tz
 
     def initialize
       yield self
@@ -13,7 +13,12 @@ module AutotaskAPI
         c.read_timeout 30
         c.open_timeout 30
       end
+      self.tz ||= 'UTC'
       Entity.client ||= self
+    end
+
+    def now
+      ActiveSupport::TimeZone[tz].now
     end
 
     def response

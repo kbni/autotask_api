@@ -48,4 +48,10 @@ module AutotaskAPI
       @@picklist
     end
   end
+  
+  class AtQuery
+    def get_picklist
+      @client.get_picklist(@entity)
+    end
+  end
 end

@@ -33,6 +33,7 @@ module AutotaskAPI
   # Storage object for our XML document
   class AtQuery
     def initialize(entity, client)
+      @entity = entity
       @client = client
       @doc = XML::Document.new
       @doc.root = XML::Node.new('queryxml')
