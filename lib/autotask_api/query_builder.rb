@@ -1,24 +1,9 @@
 module AutotaskAPI
   class Client
-    def field
-      @atf ||= AtFieldHelper.new(false)
-      @atf
-    end
-
-    def udf_field
-      @atfu ||= AtFieldHelper.new(true)
-      @atfu
-    end
-
-    def fi
-      @atf ||= AtFieldHelper.new(false)
-      @atf
-    end
-
-    def ufi
-      @atfu ||= AtFieldHelper.new(true)
-      @atfu
-    end
+    def field; @atf ||= EntityQueryFieldHelper.new(false); end
+    def udf_field; @atfu ||= EntityQueryFieldHelper.new(true); end
+    def fi; @atf ||= EntityQueryFieldHelper.new(false); end
+    def ufi; @atfu ||= EntityQueryFieldHelper.new(true); end
 
     def is_valid_entity(entity_name)
       @valid_entities.keys.include?(entity_name.to_s.downcase)
@@ -59,9 +44,9 @@ module AutotaskAPI
     end
 
     def relate_client(expr_or_cond)
-      if expr_or_cond.is_a? AtCondition
+      if expr_or_cond.is_a? EntityQueryCondition
         expr_or_cond.children.collect { |c| relate_client(c) }
-      elsif expr_or_cond.is_a? AtExpression
+      elsif expr_or_cond.is_a? EntityQueryExpression
         cmp = expr_or_cond.cmp
         if cmp.is_a? ActiveSupport::TimeWithZone
           expr_or_cond.cmp =
@@ -76,37 +61,47 @@ module AutotaskAPI
         @id_cache ||= {}
         if not @id_cache.keys.include?(expr_or_cond)
           @id_cache[expr_or_cond] =
-            self[(AtField.new('id') == expr_or_cond)].first
+            self[(EntityQueryField.new('id') == expr_or_cond)].first
           @query.children.collect { |c| c.remove! }
           @id_cache[expr_or_cond]
         end
         @id_cache[expr_or_cond]
       else
         @query << relate_client(expr_or_cond.clone).to_xml
-        puts self.to_s
         res = @client.entities_for(self.to_s)
         @query.children.collect { |c| c.remove! }
         res
       end
     end
 
+    def query_xml(expr_or_cond)
+      if expr_or_cond.is_a?(Fixnum)
+        query_xml((EntityQueryField.new('id') == expr_or_cond))
+      else
+        @query << relate_client(expr_or_cond.clone).to_xml
+        res = self.to_s
+        @query.children.collect { |c| c.remove! }
+        res
+      end
+    end
+
     def field_equals(field, cmp)
-      self[AtField.new(field.to_s.camelize, false)==cmp]
+      self[EntityQueryField.new(field.to_s.camelize, false)==cmp]
     end
   end
 
-  class AtFieldHelper
+  class EntityQueryFieldHelper
     attr_accessor :is_udf
     def initialize(is_udf = false)
       self.is_udf = is_udf
     end
 
     def method_missing(method_sym, *arguments, &block)
-      AtField.new(method_sym, self.is_udf)
+      EntityQueryField.new(method_sym, self.is_udf)
     end
   end
 
-  class AtField
+  class EntityQueryField
     attr_accessor :name, :is_udf
     def initialize(field_name, is_udf = false)
       self.is_udf = is_udf
@@ -114,71 +109,71 @@ module AutotaskAPI
     end
 
     def ==(other)
-      AtExpression.new(self, 'Equals', other)
+      EntityQueryExpression.new(self, 'Equals', other)
     end
 
     def !=(other)
-      AtExpression.new(self, 'NotEqual', other)
+      EntityQueryExpression.new(self, 'NotEqual', other)
     end
 
     def <(other)
-      AtExpression.new(self, 'LessThan', other)
+      EntityQueryExpression.new(self, 'LessThan', other)
     end
 
     def >(other)
-      AtExpression.new(self, 'GreaterThan', other)
+      EntityQueryExpression.new(self, 'GreaterThan', other)
     end
 
     def <=(other)
-      AtExpression.new(self, 'LessThanOrEquals', other)
+      EntityQueryExpression.new(self, 'LessThanOrEquals', other)
     end
 
     def >=(other)
-      AtExpression.new(self, 'GreaterThanOrEquals', other)
+      EntityQueryExpression.new(self, 'GreaterThanOrEquals', other)
     end
 
     def like(other)
-      AtExpression.new(self, 'Like', other)
+      EntityQueryExpression.new(self, 'Like', other)
     end
 
     def equals(other)
-      AtExpression.new(self, 'Equals', other)
+      EntityQueryExpression.new(self, 'Equals', other)
     end
 
     def notlike(other)
-      AtExpression.new(self, 'NotLike', other)
+      EntityQueryExpression.new(self, 'NotLike', other)
     end
 
     def soundslike(other)
-      AtExpression.new(self, 'SoundsLike', other)
+      EntityQueryExpression.new(self, 'SoundsLike', other)
     end
 
     def isnull
-      AtExpression.new(self, 'IsNull', nil)
+      EntityQueryExpression.new(self, 'IsNull', nil)
     end
 
     def isnotnull
-      AtExpression.new(self, 'IsNotNull', nil)
+      EntityQueryExpression.new(self, 'IsNotNull', nil)
     end
 
     def isthisday(other)
-      AtExpression.new(self, 'IsThisDay', other)
+      EntityQueryExpression.new(self, 'IsThisDay', other)
     end
 
     def contains(other)
-      AtExpression.new(self, 'Contains', other)
+      EntityQueryExpression.new(self, 'Contains', other)
     end
 
     def beginswith(other)
-      AtExpression.new(self, 'BeginsWith', other)
+      EntityQueryExpression.new(self, 'BeginsWith', other)
     end
 
     def endswith(other)
-      AtExpression.new(self, 'EndsWith', other)
+      EntityQueryExpression.new(self, 'EndsWith', other)
     end
   end
 
-  class AtExpression
+  class EntityQueryExpression
     attr_accessor :field, :op, :cmp
     def initialize(field, op, cmp)
       self.field = field.clone
@@ -187,17 +182,17 @@ module AutotaskAPI
     end
 
     def |(other)
-      if other.is_a?(AtExpression) || other.is_a?(AtCondition)
-        new_c = AtCondition.new(self.op)
-        new_c << ( AtCondition.new('and') << self.clone )
-        new_c << ( AtCondition.new('or') << other.clone )
+      if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
+        new_c = EntityQueryCondition.new(self.op)
+        new_c << ( EntityQueryCondition.new('and') << self.clone )
+        new_c << ( EntityQueryCondition.new('or') << other.clone )
         new_c
       end
     end
 
     def &(other)
-      if other.is_a?(AtExpression) || other.is_a?(AtCondition)
-        new_c = AtCondition.new('and')
+      if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
+        new_c = EntityQueryCondition.new('and')
         new_c << self.clone
         new_c << other.clone
         new_c
@@ -217,7 +212,7 @@ module AutotaskAPI
     end
   end
 
-  class AtCondition
+  class EntityQueryCondition
     attr_accessor :children, :op
 
     def initialize(op)
@@ -231,8 +226,8 @@ module AutotaskAPI
     end
 
     def |(other)
-      if other.is_a?(AtExpression) || other.is_a?(AtCondition)
-        new_c = AtCondition.new('or')
+      if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
+        new_c = EntityQueryCondition.new('or')
         new_c << self
         new_c << other.clone
         new_c
@@ -240,8 +235,8 @@ module AutotaskAPI
     end
 
     def &(other)
-      if other.is_a?(AtExpression) || other.is_a?(AtCondition)
-        new_c = AtCondition.new('and')
+      if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
+        new_c = EntityQueryCondition.new('and')
         new_c << self
         new_c << other.clone
         new_c
