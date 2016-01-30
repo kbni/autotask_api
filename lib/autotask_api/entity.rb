@@ -3,7 +3,8 @@ module AutotaskAPI
     class_attribute :fields, :client, :find_cache
     attr_accessor :attributes, :raw_xml
 
-    def initialize(xml)
+    def initialize(xml, client)
+      self.client = client
       self.raw_xml = xml
       self.attributes = {}
       fields.each do |field|

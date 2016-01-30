@@ -14,7 +14,6 @@ module AutotaskAPI
         c.open_timeout 30
       end
       self.tz ||= 'UTC'
-      Entity.client ||= self
     end
 
     def now
@@ -46,7 +45,7 @@ module AutotaskAPI
 
       klass = ('AutotaskAPI::' + entities.first.attribute('type').to_s).constantize
       entities.collect do |entity|
-        klass.new entity
+        klass.new(entity, self)
       end
     end
 
