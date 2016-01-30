@@ -1,6 +1,6 @@
 module AutotaskAPI
   class Entity
-    class_attribute :fields, :client, :find_cache
+    class_attribute :fields, :client
     attr_accessor :attributes, :raw_xml
 
     def initialize(xml, client)
@@ -11,7 +11,7 @@ module AutotaskAPI
         attributes[field] = self[field]
       end
     end
-    
+
     def field_by_xpath(attr_name, rescue_val = '')
       field_node_name = attr_name.to_s.downcase.gsub('_', '')
       xpath_query = "*[translate(name(),"\
@@ -20,7 +20,7 @@ module AutotaskAPI
         "='#{field_node_name}']"
       raw_xml.at_xpath(xpath_query).text.strip rescue rescue_val
     end
-    
+
     def [](attr_name)
       field_by_xpath(attr_name, '')
     end
@@ -43,33 +43,34 @@ module AutotaskAPI
       end
     end
 
-    def self.find(id, field = 'id')
-      raise "No initialized client!" unless client
-      self.find_cache ||= {}
-
-      query = AutotaskAPI::QueryXML.new do |query|
-        query.entity = self.to_s.demodulize
-        query.field = field
-        query.expression = id
+    def self.belongs_to(name, options = {})
+      class_name = (options[:class_name] || name).to_s
+      foreign_key = (options[:foreign_key] || class_name.foreign_key).to_s
+      define_method name do
+        use_key = self[foreign_key]
+        if use_key != ''
+          self.client.get_entity_query(class_name)[use_key.to_i]
+        end
       end
-      find_cache[id] ||= client.entities_for(query).first
     end
 
-    def self.belongs_to(name, options = {})
-      name = name.to_s
-      klass = "AutotaskAPI::#{(options[:class_name] || name).to_s.classify}"
-      foreign_key = name.foreign_key
+    def self.has_many(name, options = {})
+      class_name = (options[:class_name] || name.to_s.gsub(/s$/, '')).to_s
+      foreign_key = (options[:foreign_key] || self.name.demodulize+'_id').to_s
       define_method name do
-        klass.constantize.find send(foreign_key)
+        self.client.get_entity_query(class_name.camelize).\
+          field_equals(foreign_key, self.id)
       end
     end
 
     def self.has_one(name, options = {})
-      name = name.to_s
-      options.reverse_merge! foreign_key: self.to_s.foreign_key.camelize
-      klass = "AutotaskAPI::#{(options[:class_name] || name).to_s.classify}"
+      class_name = (options[:class_name] || name).to_s
+      foreign_key = (options[:foreign_key] || class_name.foreign_key).to_s
       define_method name do
-        klass.constantize.find id, options[:foreign_key]
+        use_key = self[foreign_key]
+        if use_key != ''
+          self.client.get_entity_query(class_name)[use_key.to_i]
+        end
       end
     end
   end

@@ -4,17 +4,25 @@ module AutotaskAPI
       @prefix = prefix
       @client = client
     end
-    
+
     def method_missing(method_sym, *arguments, &block)
-      ret = @client.picklist["#{@prefix}/#{method_sym}"]
-      if ret == nil then
-        super
-      else
-        ret
+      pick_key = "#{@prefix}/#{method_sym}"
+      entity_name = method_sym.to_s.split('_')[0]
+
+      # require the first part to be a real module
+      #('AutotaskAPI::'+entity_name).constantize rescue super
+      # maybe when there are more types..
+
+      if @client.picklist.select { |k,v| v.include? pick_key }.count == 0
+        @client.get_picklist(entity_name)
       end
+
+      ret = @client.picklist["#{@prefix}/#{method_sym}"]
+      super if ret == nil
+      ret
     end
   end
-  
+
   class Client
     def get_picklist(entity_name)
       @@picklist ||= Hash.new
@@ -33,22 +41,23 @@ module AutotaskAPI
         end
       end
     end
-    
+
     def pick
       # We're using the username so we can connect to multiple Autotasks
       @helper ||= PicklistHelper.new(self, basic_auth[0])
       @helper
     end
-    
+
     def pl
       pick
     end
-    
+
     def picklist
+      @@picklist ||= Hash.new
       @@picklist
     end
   end
-  
+
   class AtQuery
     def get_picklist
       @client.get_picklist(@entity)

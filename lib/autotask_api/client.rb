@@ -13,6 +13,14 @@ module AutotaskAPI
         c.read_timeout 30
         c.open_timeout 30
       end
+
+      @valid_entities = Hash.new
+      AutotaskAPI.constants.collect do |const|
+        if ('AutotaskAPI::'+const.to_s).constantize.superclass == Entity
+          @valid_entities[const.to_s.downcase] = const
+        end
+      end
+
       self.tz ||= 'UTC'
     end
 
@@ -43,10 +51,14 @@ module AutotaskAPI
 
       return [] if entities.blank?
 
-      klass = ('AutotaskAPI::' + entities.first.attribute('type').to_s).constantize
+      klass = entity_class(entities.first.attribute('type').to_s)
       entities.collect do |entity|
         klass.new(entity, self)
       end
+    end
+
+    def entity_class(entity_name)
+      ('AutotaskAPI::' + entity_name.to_s.camelize).constantize rescue false
     end
 
     def field_info(entity_name)
