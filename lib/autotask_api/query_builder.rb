@@ -66,6 +66,13 @@ module AutotaskAPI
           @id_cache[expr_or_cond]
         end
         @id_cache[expr_or_cond]
+      elsif expr_or_cond.is_a?(String)
+        like_field = (
+          ('AutotaskAPI::'+self.entity).constantize.like_field.to_s.camelize or
+          "#{self.entity}Name"
+        )
+        like_field_obj = self.client.field[like_field]
+        self[like_field_obj.like(expr_or_cond)]
       else
         @query << relate_client(expr_or_cond.clone).to_xml
         res = @client.entities_for(self.to_s)
@@ -98,6 +105,10 @@ module AutotaskAPI
 
     def method_missing(method_sym, *arguments, &block)
       EntityQueryField.new(method_sym, self.is_udf)
+    end
+
+    def [](other)
+      EntityQueryField.new(other.to_s, self.is_udf)
     end
   end
 

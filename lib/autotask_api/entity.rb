@@ -1,6 +1,6 @@
 module AutotaskAPI
   class Entity
-    class_attribute :fields, :client
+    class_attribute :fields, :client, :like_field
     attr_accessor :attributes, :raw_xml
 
     def initialize(xml, client)
