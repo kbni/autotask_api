@@ -37,6 +37,10 @@ module AutotaskAPI
       @doc.root << (@query = XML::Node.new('query'))
     end
 
+    def class_name
+      'AutotaskAPI::'+@entity
+    end
+
     def to_s
       rdoc = XML::Document.new
       rdoc.root = XML::Node.new('sXML')
@@ -68,7 +72,7 @@ module AutotaskAPI
         end
         @id_cache[expr_or_cond]
       elsif expr_or_cond.is_a?(String)
-        like_field = (@klass.like_field.to_s.camelize or "#{self.entity}Name")
+        like_field = (@klass.like_field.to_s.camelize || "#{self.entity}Name")
         like_field_obj = self.client.field[like_field]
         self[like_field_obj.like(expr_or_cond)]
       else

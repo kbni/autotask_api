@@ -12,10 +12,6 @@ module AutotaskAPI
       end
     end
 
-    def self.valid_field?(field_name)
-      self.fields.include?(field_name.to_sym)
-    end
-
     def field_by_xpath(attr_name, rescue_val = '')
       field_node_name = attr_name.to_s.downcase.gsub('_', '')
       xpath_query = "*[translate(name(),"\
@@ -42,9 +38,15 @@ module AutotaskAPI
             ret = ActiveSupport::TimeZone['America/New_York'].parse(ret)
             ret = ret.in_time_zone(self.client.tz)
           end
+        elsif attr_name == 'id'
+          ret = ret.to_i
         end
         ret
       end
+    end
+
+    def self.valid_field?(field_name)
+      self.fields.include?(field_name.to_sym)
     end
 
     def self.belongs_to(name, options = {})

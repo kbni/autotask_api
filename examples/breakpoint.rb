@@ -2,7 +2,6 @@ path_e = File.expand_path(File.dirname(__FILE__)+"/../lib")
 $LOAD_PATH.unshift(path_e) unless $LOAD_PATH.include?(path_e)
 
 require 'autotask_api'
-require 'pry'
 
 client = AutotaskAPI::Client.new do |c|
   c.basic_auth = AUTOTASK_CREDENTIALS
@@ -11,4 +10,4 @@ client = AutotaskAPI::Client.new do |c|
   c.log = false
 end
 
-binding.pry
+binding.pry rescue nil
