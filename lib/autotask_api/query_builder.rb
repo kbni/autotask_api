@@ -28,11 +28,12 @@ module AutotaskAPI
   class EntityQuery
     attr_accessor :client, :entity
     def initialize(entity, client)
-      self.entity = entity
-      self.client = client
+      @entity = entity
+      @klass = ('AutotaskAPI::'+@entity).constantize
+      @client = client
       @doc = XML::Document.new
       @doc.root = XML::Node.new('queryxml')
-      @doc.root << (XML::Node.new('entity') << entity.to_s)
+      @doc.root << (XML::Node.new('entity') << @entity.to_s)
       @doc.root << (@query = XML::Node.new('query'))
     end
 
@@ -67,10 +68,7 @@ module AutotaskAPI
         end
         @id_cache[expr_or_cond]
       elsif expr_or_cond.is_a?(String)
-        like_field = (
-          ('AutotaskAPI::'+self.entity).constantize.like_field.to_s.camelize or
-          "#{self.entity}Name"
-        )
+        like_field = (@klass.like_field.to_s.camelize or "#{self.entity}Name")
         like_field_obj = self.client.field[like_field]
         self[like_field_obj.like(expr_or_cond)]
       else
@@ -94,6 +92,19 @@ module AutotaskAPI
 
     def field_equals(field, cmp)
       self[EntityQueryField.new(field.to_s.camelize, false)==cmp]
+    end
+
+    def method_missing(method_sym, *arguments, &block)
+      if method_sym.to_s.include?('find_by_') and arguments.count > 0
+        attr_name = method_sym.to_s.sub(/^find_by_/, '')
+        if attr_name == 'id' || @klass.valid_field?(attr_name)
+          self[client.field[attr_name.camelize] == arguments[0]]
+        else
+          super
+        end
+      else
+        super
+      end
     end
   end
 

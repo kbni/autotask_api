@@ -1,6 +1,6 @@
 module AutotaskAPI
   class Entity
-    class_attribute :fields, :client, :like_field
+    class_attribute :fields, :client, :like_field, :find_by
     attr_accessor :attributes, :raw_xml
 
     def initialize(xml, client)
@@ -10,6 +10,10 @@ module AutotaskAPI
       fields.each do |field|
         attributes[field] = self[field]
       end
+    end
+
+    def self.valid_field?(field_name)
+      self.fields.include?(field_name.to_sym)
     end
 
     def field_by_xpath(attr_name, rescue_val = '')

@@ -1,15 +1,8 @@
 module AutotaskAPI
   class Resource < Entity
     self.fields = [ :id, :email, :first_name, :last_name, :user_name, :active ]
-
-    def self.find_by_email(email)
-      query = AutotaskAPI::QueryXML.new do |query|
-        query.entity = self.to_s.demodulize
-        query.field = 'email'
-        query.expression = email
-      end
-      client.entities_for(query).first
-    end
+    self.like_field = :user_name
+    self.find_by = [ :email, :user_name ]
 
     def full_name
       [ first_name, last_name ].join(' ')
