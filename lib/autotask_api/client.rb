@@ -14,13 +14,6 @@ module AutotaskAPI
         c.open_timeout 30
       end
 
-      @valid_entities = Hash.new
-      AutotaskAPI.constants.collect do |const|
-        if ('AutotaskAPI::'+const.to_s).constantize.superclass == Entity
-          @valid_entities[const.to_s.downcase] = const
-        end
-      end
-
       self.tz ||= 'UTC'
     end
 
@@ -61,12 +54,88 @@ module AutotaskAPI
       ('AutotaskAPI::' + entity_name.to_s.camelize).constantize rescue false
     end
 
-    def field_info(entity_name)
-      savon_client.call :get_field_info, message: { psObjectType: entity_name }
+    def field_info(entity_name, as_hash = false)
+      res = savon_client.call :get_field_info, message: { psObjectType: entity_name }
+      return res unless as_hash
+      res.xpath('//Autotask:Field', Autotask: NAMESPACE).collect do |f|
+        ns = { Autotask: NAMESPACE }
+        field = {
+          udf: false,
+          name: f.xpath('./Autotask:Name', ns).text,
+          label: f.xpath('./Autotask:Label', ns).text,
+          type: f.xpath('./Autotask:Type', ns).text.underscore,
+          length: f.xpath('./Autotask:Length', ns).text.to_i,
+          is_read_only: f.xpath('./Autotask:IsReadOnly', ns).text == 'true',
+          is_queryable: f.xpath('./Autotask:IsQueryable', ns).text == 'true',
+          is_reference: f.xpath('./Autotask:IsReference', ns).text == 'true',
+          is_required: f.xpath('./Autotask:IsRequired', ns).text == 'true',
+          is_picklist: f.xpath('./Autotask:IsPickList', ns).text == 'true'
+        }
+
+        if field[:is_reference]
+          field.update({
+            ref_entity_type: f.xpath('./Autotask:ReferenceEntityType', ns)
+            .text.underscore
+          })
+        end
+
+        if field[:is_picklist]
+          field.update({
+            picklist_parent:
+              f.xpath('./Autotask:PicklistParentValueField', ns).text == 'true',
+            picklist: f.xpath('.//Autotask:PickListValue', ns).collect do |p|
+              [
+                p.xpath('./Autotask:Label', ns).text,
+                p.xpath('./Autotask:Value', ns).text
+              ]
+            end
+          })
+        end
+
+        field
+      end
     end
 
-    def udf_info(entity_name)
-      savon_client.call :get_udf_info, message: { psTable: entity_name }
+    def udf_info(entity_name, as_hash = false)
+      res = savon_client.call :get_udf_info, message: { psTable: entity_name }
+      return res unless as_hash
+      res.xpath('//Autotask:Field', Autotask: NAMESPACE).collect do |f|
+        ns = { Autotask: NAMESPACE }
+        field = {
+          udf: true,
+          name: f.xpath('./Autotask:Name', ns).text,
+          label: f.xpath('./Autotask:Label', ns).text,
+          type: f.xpath('./Autotask:Type', ns).text.underscore,
+          length: f.xpath('./Autotask:Length', ns).text.to_i,
+          is_read_only: f.xpath('./Autotask:IsReadOnly', ns).text == 'true',
+          is_queryable: f.xpath('./Autotask:IsQueryable', ns).text == 'true',
+          is_reference: f.xpath('./Autotask:IsReference', ns).text == 'true',
+          is_required: f.xpath('./Autotask:IsRequired', ns).text == 'true',
+          is_picklist: f.xpath('./Autotask:IsPickList', ns).text == 'true'
+        }
+
+        if field[:is_reference]
+          field.update({
+            ref_entity_type: f.xpath('./Autotask:ReferenceEntityType', ns)
+            .text.underscore
+          })
+        end
+
+        if field[:is_picklist]
+          field.update({
+            picklist_parent:
+              f.xpath('./Autotask:PicklistParentValueField', ns).text == 'true',
+            picklist: f.xpath('.//Autotask:PickListValue', ns).collect do |p|
+              [
+                p.xpath('./Autotask:Label', ns).text,
+                p.xpath('./Autotask:Value', ns).text
+              ]
+            end
+          })
+        end
+
+        field
+      end
     end
 
     def zone_info(user_name = nil)

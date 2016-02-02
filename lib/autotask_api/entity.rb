@@ -7,6 +7,7 @@ module AutotaskAPI
       self.client = client
       self.raw_xml = xml
       self.attributes = {}
+      @entity_name = self.class.to_s.demodulize
       fields.each do |field|
         attributes[field] = self[field]
       end
@@ -23,26 +24,6 @@ module AutotaskAPI
 
     def [](attr_name)
       field_by_xpath(attr_name, '')
-    end
-
-    def method_missing(method, *args, &block)
-      attr_name = method.to_s.gsub('_', '').downcase
-      ret = field_by_xpath(attr_name, nil)
-      if ret == nil
-        super
-      else
-        if attr_name.include? "datetime"
-          if ret.include? "T00:00:00"
-            ret = ActiveSupport::TimeZone[self.client.tz].parse(ret)
-          else
-            ret = ActiveSupport::TimeZone['America/New_York'].parse(ret)
-            ret = ret.in_time_zone(self.client.tz)
-          end
-        elsif attr_name == 'id'
-          ret = ret.to_i
-        end
-        ret
-      end
     end
 
     def self.valid_field?(field_name)

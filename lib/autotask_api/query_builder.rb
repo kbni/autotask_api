@@ -6,18 +6,36 @@ module AutotaskAPI
     def ufi; @atfu ||= EntityQueryFieldHelper.new(true); end
 
     def is_valid_entity(entity_name)
-      @valid_entities.keys.include?(entity_name.to_s.downcase)
+      @valid_entities ||= Hash.new
+      if @valid_entities.count == 0
+        AutotaskAPI.constants.collect do |const|
+          if ('AutotaskAPI::'+const.to_s).constantize.superclass == Entity
+            @valid_entities[const.to_s] = const
+          end
+        end
+      end
+
+      entity_name = entity_name.to_s
+      @valid_entities.keys.include?(entity_name)
     end
 
     def get_entity_query(entity_name)
+      entity_name = entity_name.to_s
+      # We'll cache the EntityQuery objects here, as they cache picklists, etc.
+      @entity_query_cache ||= {}
       if is_valid_entity(entity_name)
-        EntityQuery.new(entity_name.to_s, self)
+        if not @entity_query_cache.keys.include?(entity_name)
+          @entity_query_cache[entity_name] =
+            EntityQuery.new(entity_name, self)
+        end
+        @entity_query_cache[entity_name]
       end
     end
 
     def method_missing(method_sym, *arguments, &block)
-      if is_valid_entity(method_sym)
-        get_entity_query(method_sym)
+      entity_name = method_sym.to_s
+      if is_valid_entity(entity_name)
+        get_entity_query(entity_name)
       else
         super
       end
@@ -26,7 +44,7 @@ module AutotaskAPI
 
   # Storage object for our XML document
   class EntityQuery
-    attr_accessor :client, :entity
+    attr_accessor :client, :entity, :fields_info
     def initialize(entity, client)
       @entity = entity
       @klass = ('AutotaskAPI::'+@entity).constantize
@@ -35,10 +53,17 @@ module AutotaskAPI
       @doc.root = XML::Node.new('queryxml')
       @doc.root << (XML::Node.new('entity') << @entity.to_s)
       @doc.root << (@query = XML::Node.new('query'))
+
+      @fields_info =
+        client.field_info(entity, true) + client.udf_info(entity, true)
     end
 
     def class_name
       'AutotaskAPI::'+@entity
+    end
+
+    def entity_name
+      @entity
     end
 
     def to_s
@@ -52,6 +77,25 @@ module AutotaskAPI
       if expr_or_cond.is_a? EntityQueryCondition
         expr_or_cond.children.collect { |c| relate_client(c) }
       elsif expr_or_cond.is_a? EntityQueryExpression
+        field_info = fields_info.select { |fi|
+          fi[:name] == expr_or_cond.field.name.to_s ||
+          fi[:name] == expr_or_cond.field.name.to_s.underscore
+        }.first
+
+        if field_info
+          expr_or_cond.field.name = field_info[:name].to_s
+
+          if field_info[:picklist]
+            field_info[:picklist].collect do |val,val_id|
+              if val == expr_or_cond.cmp.to_s
+                expr_or_cond.cmp = val_id.to_s
+                break
+              end
+            end
+          end
+
+        end
+
         cmp = expr_or_cond.cmp
         if cmp.is_a? ActiveSupport::TimeWithZone
           expr_or_cond.cmp =
@@ -278,6 +322,64 @@ module AutotaskAPI
 
     def to_s
       to_xml
+    end
+  end
+
+
+  class Entity
+    def method_missing(method_sym, *args, &block)
+      attr_name = method_sym.to_s.classify.gsub(/Id$/, 'ID')
+
+      match_field = nil
+
+      field_data =
+        client.get_entity_query(@entity_name).fields_info.select { |f|
+          try_names = [ attr_name+'Id', attr_name, @entity_name+attr_name ]
+          try_names.collect { |x| x.downcase }.index(f[:name].downcase) != nil
+        }.first
+
+      super if field_data == nil
+
+      ret = field_by_xpath(field_data[:name])
+
+      if field_data[:is_picklist]
+        picklist_match =
+          field_data[:picklist].select { |val,val_id| val_id.to_s == ret.to_s }
+        if picklist_match.count > 0
+          return picklist_match.first.first
+        else
+          return 'Unknown'
+        end
+      end
+
+      if field_data[:is_reference]
+        ref_type = field_data[:ref_entity_type].classify
+        entity_query = client.get_entity_query(ref_type)
+        if !entity_query
+          warn("No autotask_api definition '#{ref_type}'")
+          super
+        end
+        begin
+          return entity_query[ret.to_i]
+        rescue
+          return nil
+        end
+      end
+
+      if field_data[:name].downcase == 'id'
+        ret = ret.to_i
+      end
+
+      if field_data[:name].include?('DateTime')
+        if ret.include? "T00:00:00"
+          ret = ActiveSupport::TimeZone[self.client.tz].parse(ret)
+        else
+          ret = ActiveSupport::TimeZone['America/New_York'].parse(ret)
+          ret = ret.in_time_zone(self.client.tz)
+        end
+      end
+
+      ret
     end
   end
 end
