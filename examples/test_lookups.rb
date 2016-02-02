@@ -37,15 +37,31 @@ account = test_entities[:account]
 resource = test_entities[:resource]
 ticket = test_entities[:ticket]
 
+last_week = (
+  (client.fi.start_date_time >= (client.now.change({hour:0,min:0})-7.day)) &
+  (client.fi.start_date_time <= client.now.change({hour:23,min:59}))
+)
+tech_work = (
+  (client.fi.allocation_code != 'General Administration') &
+  (client.fi.allocation_code != 'Sales')
+)
+
 puts ""
 puts "#{project.project_number} is managed by "+\
      "#{project.project_lead_resource.full_name}"
 puts "#{ticket.ticket_number} is assigned to #{ticket.assigned_resource.full_name}"
 puts "#{ticket.number} is in status: "+\
      "#{ticket.status} (#{ticket['status']})"
+puts "#{ticket.number} has #{ticket.time_entries.count} time entries"
 puts "#{ticket.ticket_number} is in queue: "+\
      "#{ticket.queue} (#{ticket['queue_id']})"
 puts "#{account.account_name} is a very lucrative account"
 puts "#{resource.full_name} is a kewl dude"
+
+te_last_week = client.TimeEntry[last_week&tech_work]
+first_te = nil
+last_te = nil
+
+puts "There were #{te_last_week.count} time entries in the last 7 days"
 
 binding.pry rescue nil

@@ -3,6 +3,10 @@ module AutotaskAPI
     self.fields = [ :account_id, :assigned_resource_id, :ticket_number, :title, :description, :status ]
     self.like_field = :ticket_number
 
+    def time_entries
+      client.TimeEntry[client.field.TicketID==self.id]
+    end
+
     def status_name
       self.class.status_map[status]
     end

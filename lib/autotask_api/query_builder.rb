@@ -77,23 +77,39 @@ module AutotaskAPI
       if expr_or_cond.is_a? EntityQueryCondition
         expr_or_cond.children.collect { |c| relate_client(c) }
       elsif expr_or_cond.is_a? EntityQueryExpression
-        field_info = fields_info.select { |fi|
-          fi[:name] == expr_or_cond.field.name.to_s ||
-          fi[:name] == expr_or_cond.field.name.to_s.underscore
-        }.first
+        attr_name = expr_or_cond.field.name.to_s.classify
+        field_data =
+          fields_info.select { |f|
+            try_names = [ attr_name+'Id', attr_name, @entity+attr_name ]
+            try_names.collect { |x| x.downcase }.index(f[:name].downcase) != nil
+          }.first
 
-        if field_info
-          expr_or_cond.field.name = field_info[:name].to_s
+        if field_data
+          expr_or_cond.field.name = field_data[:name]
+          if expr_or_cond.cmp.is_a?(String) && !expr_or_cond.cmp.is_number?
+            expr_or_cond.field.name = field_data[:name].to_s
 
-          if field_info[:picklist]
-            field_info[:picklist].collect do |val,val_id|
-              if val == expr_or_cond.cmp.to_s
-                expr_or_cond.cmp = val_id.to_s
-                break
+            if field_data[:picklist]
+              pl_result = field_data[:picklist].select { |val,val_id|
+                val.downcase.to_s == expr_or_cond.cmp.to_s.downcase
+              }
+
+              if pl_result.count > 0
+                expr_or_cond.cmp = pl_result.first.val_id.to_s
+              end
+            end
+
+            if field_data[:is_reference]
+              ref_type = field_data[:ref_entity_type].classify
+              entity_query = client.get_entity_query(ref_type)
+              if !entity_query
+                warn("No autotask_api definition #{ref_type} for relate_client()")
+              else
+                found_entity = entity_query[expr_or_cond.cmp].first
+                expr_or_cond.cmp = found_entity.id if found_entity
               end
             end
           end
-
         end
 
         cmp = expr_or_cond.cmp
@@ -102,6 +118,7 @@ module AutotaskAPI
             cmp.in_time_zone('America/New_York').iso8601
         end
       end
+
       expr_or_cond
     end
 
@@ -330,8 +347,6 @@ module AutotaskAPI
     def method_missing(method_sym, *args, &block)
       attr_name = method_sym.to_s.classify.gsub(/Id$/, 'ID')
 
-      match_field = nil
-
       field_data =
         client.get_entity_query(@entity_name).fields_info.select { |f|
           try_names = [ attr_name+'Id', attr_name, @entity_name+attr_name ]
@@ -357,12 +372,9 @@ module AutotaskAPI
         entity_query = client.get_entity_query(ref_type)
         if !entity_query
           warn("No autotask_api definition '#{ref_type}'")
-          super
-        end
-        begin
-          return entity_query[ret.to_i]
-        rescue
           return nil
+        else
+          return entity_query[ret.to_i]
         end
       end
 
