@@ -7,6 +7,7 @@ client = AutotaskAPI::Client.new do |c|
   c.basic_auth = AUTOTASK_CREDENTIALS
   c.wsdl = AUTOTASK_ENDPOINT
   c.tz = AUTOTASK_TIMEZONE
+  c.cache_dir = AUTOTASK_CACHE_DIR
   c.log = false
 end
 
