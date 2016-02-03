@@ -345,7 +345,7 @@ module AutotaskAPI
 
   class Entity
     def method_missing(method_sym, *args, &block)
-      attr_name = method_sym.to_s.classify.gsub(/Id$/, 'ID')
+      attr_name = method_sym.to_s.camelize.gsub(/Id$/, 'ID')
 
       field_data =
         client.get_entity_query(@entity_name).fields_info.select { |f|
@@ -368,7 +368,7 @@ module AutotaskAPI
       end
 
       if field_data[:is_reference]
-        ref_type = field_data[:ref_entity_type].classify
+        ref_type = field_data[:ref_entity_type].camelize
         entity_query = client.get_entity_query(ref_type)
         if !entity_query
           warn("No autotask_api definition '#{ref_type}'")
@@ -380,6 +380,8 @@ module AutotaskAPI
 
       if field_data[:name].downcase == 'id'
         ret = ret.to_i
+      elsif field_data[:type] == 'integer'
+        ret = ret.to_f
       end
 
       if field_data[:name].include?('DateTime')
