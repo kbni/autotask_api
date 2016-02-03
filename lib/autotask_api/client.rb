@@ -3,6 +3,10 @@ module AutotaskAPI
     NAMESPACE = 'http://autotask.net/ATWS/v1_5/'
     attr_accessor :savon_client, :wsdl, :basic_auth, :query, :log, :tz, :cache_dir
 
+    def inspect
+      "#{self.to_s}(login:#{basic_auth.first.split('@').first})"
+    end
+
     def initialize
       yield self
       self.savon_client ||= Savon.client do |c|
