@@ -49,16 +49,5 @@ module AutotaskAPI
           field_equals(foreign_key, self.id)
       end
     end
-
-    def self.has_one(name, options = {})
-      class_name = (options[:class_name] || name).to_s
-      foreign_key = (options[:foreign_key] || class_name.foreign_key).to_s
-      define_method name do
-        use_key = self[foreign_key]
-        if use_key != ''
-          self.client.get_entity_query(class_name)[use_key.to_i]
-        end
-      end
-    end
   end
 end

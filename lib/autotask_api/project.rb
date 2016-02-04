@@ -4,9 +4,9 @@ module AutotaskAPI
     self.like_field = :project_name
 
     has_many :tasks
-    has_one :owner, {
-      :foreign_key => :project_lead_resource_id,
-      :class_name => :resource
-    }
+
+    def owner
+      self.project_lead_resource_id
+    end
   end
 end
