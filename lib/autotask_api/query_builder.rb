@@ -270,9 +270,9 @@ module AutotaskAPI
 
     def |(other)
       if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
-        new_c = EntityQueryCondition.new('and')
-        new_c << self.clone
-        new_c << other.clone
+        new_c = EntityQueryCondition.new(self.op)
+        new_c << ( EntityQueryCondition.new('and') << self.clone )
+        new_c << ( EntityQueryCondition.new('or') << other.clone )
         new_c
       end
     end
@@ -313,10 +313,19 @@ module AutotaskAPI
     end
 
     def |(other)
-      if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
+      if other.is_a?(EntityQueryExpression)
+        parent_condition = EntityQueryCondition.new(self.op)
+        self.children.collect do |child|
+          child.op = 'or'
+          parent_condition << child
+        end
+        new_child = (EntityQueryCondition.new('or') << other)
+        parent_condition << new_child
+        parent_condition
+      elsif other.is_a?(EntityQueryCondition)
         new_c = EntityQueryCondition.new('or')
         new_c << self
-        new_c << other.clone
+        new_c << other
         new_c
       end
     end
@@ -325,7 +334,7 @@ module AutotaskAPI
       if other.is_a?(EntityQueryExpression) || other.is_a?(EntityQueryCondition)
         new_c = EntityQueryCondition.new('and')
         new_c << self
-        new_c << other.clone
+        new_c << other
         new_c
       end
     end

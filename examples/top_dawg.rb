@@ -3,21 +3,43 @@ $LOAD_PATH.unshift(path_e) unless $LOAD_PATH.include?(path_e)
 
 require 'autotask_api'
 
-def today_time_entries(at)
+def top_dawg(at)
   week_day = at.now
   week_day -= 1.day if week_day.saturday?
   week_day -= 2.day if week_day.sunday?
 
   today_se = (
-    (at.fi.StartDateTime >= week_day.change({ hour:0, min: 0 })) &
-    (at.fi.StartDateTime <= week_day.change({ hour: 23, min: 59 }))
+    (at.fi.start_date_Time >= week_day.change({ hour:0, min: 0 })) &
+    (at.fi.start_date_Time <= week_day.change({ hour: 23, min: 59 }))
   )
   tech_work = (
-    (at.fi.AllocationCodeID != at.pl.ExpenseItem_WorkType_GeneralAdministration) &
-    (at.fi.AllocationCodeID != at.pl.ExpenseItem_WorkType_Sales)
+    (at.fi.allocation_code != 'General Administration') &
+    (at.fi.allocation_code != 'Sales')
   )
 
-  at.TimeEntry[today_se&tech_work]
+  time_entries = at.TimeEntry[today_se&tech_work]
+
+  dawgs = Hash.new
+  time_entries.collect do |te|
+    resource = te.resource
+    dawgs[resource.id] ||= 0.to_f
+    dawgs[resource.id] += te.hours_worked
+  end
+
+  td = Hash[dawgs.select { |k,v| v == dawgs.values.max }]
+
+  txt =
+    if td.count > 1
+      "There are #{td.count} Top Dawgs at #{td.values.max} hours: "+
+      ", ".join(td.keys.collect { |r| at.Resource[r].full_name })
+    elsif td.count == 1
+      "The Top Dawg on #{td.values.max} hours is "+
+      "#{at.Resource[td.keys.max].full_name}"
+    else
+      "There is currently no Top Dawg. Take the title."
+    end
+
+  { value: td.values.max || 0.to_f, moreinfo: txt }
 end
 
 client = AutotaskAPI::Client.new do |c|
@@ -27,13 +49,7 @@ client = AutotaskAPI::Client.new do |c|
   c.log = false
 end
 
-time_entries = today_time_entries(client)
-
-puts "#{time_entries.count} time entries from last work day"
-
-time_entries.collect do |te|
-  puts "#{te.start_date_time} to #{te.end_date_time}"
-  puts te
-end
+dawgs = top_dawg(client)
+puts dawgs
 
 binding.pry rescue nil
