@@ -95,7 +95,7 @@ module AutotaskAPI
               }
 
               if pl_result.count > 0
-                expr_or_cond.cmp = pl_result.first.val_id.to_s
+                expr_or_cond.cmp = pl_result.first.last.to_s
               end
             end
 
@@ -381,6 +381,8 @@ module AutotaskAPI
       if field_data[:name].downcase == 'id'
         ret = ret.to_i
       elsif field_data[:type] == 'integer'
+        ret = ret.to_i
+      elsif field_data[:type] == 'double'
         ret = ret.to_f
       end
 
